@@ -1,0 +1,13 @@
+{
+  "name": "autonomy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AUTONOMY personal finance command center MVP",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check app.js && node --check server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

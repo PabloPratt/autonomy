@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AUTONOMY</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="auth-screen" id="authScreen">
+      <form class="auth-card" id="authForm">
+        <p class="eyebrow">AUTONOMY secure setup</p>
+        <h1 id="authTitle">Create Owner Access</h1>
+        <p id="authHelp">
+          The first account becomes the owner. This local MVP stores hashed credentials and your plan on this machine.
+        </p>
+        <label>
+          Email
+          <input id="authEmail" type="email" autocomplete="email" required />
+        </label>
+        <label>
+          Password
+          <input id="authPassword" type="password" autocomplete="current-password" minlength="12" required />
+        </label>
+        <button class="primary-button" type="submit" id="authSubmit">Create Owner Account</button>
+        <p class="auth-error" id="authError"></p>
+      </form>
+    </div>
+
+    <main class="app-shell is-hidden" id="appShell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Personal finance command center</p>
+          <h1>AUTONOMY</h1>
+        </div>
+        <div class="top-actions">
+          <span class="user-pill" id="userPill">Not signed in</span>
+          <button class="icon-button" id="logout" type="button" title="Log out">Log Out</button>
+          <button class="icon-button" id="resetData" type="button" title="Reset sample data">Reset</button>
+          <button class="primary-button" id="saveData" type="button">Save Plan</button>
+        </div>
+      </header>
+
+      <section class="status-grid" aria-label="Autonomy summary">
+        <article class="metric-panel score-panel">
+          <div class="metric-label">Autonomy Score</div>
+          <div class="score-row">
+            <strong id="autonomyScore">0</strong>
+            <span>/100</span>
+          </div>
+          <div class="meter" aria-hidden="true">
+            <span id="scoreMeter"></span>
+          </div>
+          <p id="autonomySummary">Calculating your plan.</p>
+        </article>
+        <article class="metric-panel">
+          <div class="metric-label">Required Through Jan 1</div>
+          <strong id="requiredTotal">$0</strong>
+          <p id="requiredDetail">Bills plus essentials and buffer.</p>
+        </article>
+        <article class="metric-panel">
+          <div class="metric-label">Covered Today</div>
+          <strong id="coveredTotal">$0</strong>
+          <p id="coveredDetail">Cash reserves plus prepaid value.</p>
+        </article>
+        <article class="metric-panel">
+          <div class="metric-label">Gap Or Surplus</div>
+          <strong id="gapTotal">$0</strong>
+          <p id="gapDetail">Amount needed before full coverage.</p>
+        </article>
+      </section>
+
+      <section class="dashboard-grid">
+        <article class="panel wide">
+          <div class="section-header">
+            <div>
+              <h2>Connections</h2>
+              <p>Real automation starts here. Nothing is treated as connected until backend configuration exists.</p>
+            </div>
+            <span class="status-pill" id="connectionCount">0 Connected</span>
+          </div>
+          <div class="connections-grid" id="connectionsGrid"></div>
+          <div class="notice">
+            Financial credentials should never be typed into this page. Use provider dashboards, environment variables, or a secret manager when we add live integrations.
+          </div>
+        </article>
+
+        <article class="panel wide">
+          <div class="section-header">
+            <div>
+              <h2>Coverage Plan</h2>
+              <p>Adjust the assumptions. The dashboard recalculates instantly.</p>
+            </div>
+            <span class="status-pill" id="coverageStatus">Draft</span>
+          </div>
+
+          <div class="form-grid">
+            <label>
+              Months to cover
+              <input id="monthsToCover" type="number" min="1" max="18" step="0.25" />
+            </label>
+            <label>
+              Buffer percentage
+              <input id="bufferPct" type="number" min="0" max="50" step="1" />
+            </label>
+            <label>
+              Bills account balance
+              <input id="billsBalance" type="number" min="0" step="50" />
+            </label>
+            <label>
+              Essentials buffer balance
+              <input id="essentialsBalance" type="number" min="0" step="50" />
+            </label>
+            <label>
+              Frost buffer balance
+              <input id="frostBalance" type="number" min="0" step="50" />
+            </label>
+            <label>
+              Fidelity liquid balance
+              <input id="fidelityBalance" type="number" min="0" step="100" />
+            </label>
+          </div>
+
+          <div class="coverage-bars" id="coverageBars"></div>
+        </article>
+
+        <article class="panel">
+          <div class="section-header compact">
+            <div>
+              <h2>Monthly Bills</h2>
+              <p>Auto-payable or predictable expenses.</p>
+            </div>
+          </div>
+          <div class="line-items" id="billItems"></div>
+        </article>
+
+        <article class="panel">
+          <div class="section-header compact">
+            <div>
+              <h2>Variable Essentials</h2>
+              <p>Groceries, fuel, and routine essentials.</p>
+            </div>
+          </div>
+          <div class="line-items" id="variableItems"></div>
+        </article>
+
+        <article class="panel wide">
+          <div class="section-header">
+            <div>
+              <h2>Paycheck And Lump Sum Rules</h2>
+              <p>These are planning rules only. No transfers are executed.</p>
+            </div>
+          </div>
+
+          <div class="rule-grid">
+            <label>
+              Regular paycheck amount
+              <input id="regularPaycheck" type="number" min="0" step="50" />
+            </label>
+            <label>
+              Monthly regular checks
+              <input id="regularChecks" type="number" min="1" max="8" step="1" />
+            </label>
+            <label>
+              Commission amount
+              <input id="commissionAmount" type="number" min="0" step="100" />
+            </label>
+            <label>
+              Commission to Fidelity %
+              <input id="commissionFidelityPct" type="number" min="0" max="100" step="5" />
+            </label>
+            <label>
+              New lump sum deposit
+              <input id="lumpSum" type="number" min="0" step="100" />
+            </label>
+          </div>
+
+          <div class="allocation-output" id="allocationOutput"></div>
+        </article>
+
+        <article class="panel">
+          <div class="section-header compact">
+            <div>
+              <h2>Prepaid Layer</h2>
+              <p>Items already bought down for the year.</p>
+            </div>
+          </div>
+          <div class="prepaid-list" id="prepaidItems"></div>
+        </article>
+
+        <article class="panel">
+          <div class="section-header compact">
+            <div>
+              <h2>Runway</h2>
+              <p>How long the reserves last without primary income.</p>
+            </div>
+          </div>
+          <div class="runway" id="runwayOutput"></div>
+        </article>
+
+        <article class="panel wide">
+          <div class="section-header">
+            <div>
+              <h2>Spending Snapshot</h2>
+              <p>Editable category totals for non-savings account spending.</p>
+            </div>
+          </div>
+          <div class="spending-grid" id="spendingItems"></div>
+          <div class="spending-chart" id="spendingChart"></div>
+        </article>
+
+        <article class="panel wide">
+          <div class="section-header">
+            <div>
+              <h2>Guardrails</h2>
+              <p>Rules for later automation so agents cannot move money blindly.</p>
+            </div>
+          </div>
+          <div class="guardrails">
+            <label class="check-row">
+              <input id="manualApproval" type="checkbox" />
+              Require approval for any transfer over the approval threshold
+            </label>
+            <label>
+              Approval threshold
+              <input id="approvalThreshold" type="number" min="0" step="50" />
+            </label>
+            <label class="check-row">
+              <input id="readOnlyMode" type="checkbox" />
+              Keep MVP in read-only mode
+            </label>
+            <label class="check-row">
+              <input id="fidelityManual" type="checkbox" />
+              Treat Fidelity activity as manual/recommendation-only
+            </label>
+          </div>
+          <div class="notice">
+            AUTONOMY v1 does not connect to banks, place trades, or initiate transfers. It validates the plan before any API automation is considered.
+          </div>
+          <div class="audit-panel" id="auditPanel"></div>
+        </article>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
