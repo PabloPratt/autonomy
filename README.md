@@ -45,4 +45,4 @@ That directory is ignored by git. It may contain financial planning values and h
 
 ## Deployment Note
 
-The current backend stores data in the local filesystem for the personal MVP. Vercel can host the UI/runtime for testing, but persistent multi-user financial data should be moved to Supabase/Postgres before relying on the hosted app.
+The current backend stores data in the local filesystem for the personal MVP. Vercel hosts the frontend in static demo mode only. Persistent multi-user financial data should be moved to Supabase/Postgres before relying on the hosted app.

@@ -25,20 +25,88 @@ let currentUser = null;
 let setupRequired = false;
 let connectors = [];
 let auditRows = [];
+let apiAvailable = true;
+
+const LOCAL_SESSION_KEY = "autonomy.hosted.session.v1";
+const LOCAL_PLAN_KEY = "autonomy.hosted.plan.v1";
 
 function byId(id) {
   return document.getElementById(id);
 }
 
 async function api(path, options = {}) {
-  const response = await fetch(path, {
-    credentials: "same-origin",
-    headers: { "Content-Type": "application/json", ...(options.headers || {}) },
-    ...options
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(payload.error || `Request failed: ${response.status}`);
-  return payload;
+  if (!apiAvailable) return localApi(path, options);
+  try {
+    const response = await fetch(path, {
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json", ...(options.headers || {}) },
+      ...options
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload.error || `Request failed: ${response.status}`);
+    return payload;
+  } catch (error) {
+    apiAvailable = false;
+    return localApi(path, options);
+  }
+}
+
+function localApi(path, options = {}) {
+  const method = options.method || "GET";
+  const session = JSON.parse(localStorage.getItem(LOCAL_SESSION_KEY) || "null");
+  const plan = JSON.parse(localStorage.getItem(LOCAL_PLAN_KEY) || "null") || structuredClone(blankFallback);
+
+  if (path === "/api/session" && method === "GET") {
+    return Promise.resolve({
+      user: session,
+      setupRequired: !session,
+      hostedFallback: true
+    });
+  }
+  if ((path === "/api/setup" || path === "/api/login") && method === "POST") {
+    const body = JSON.parse(options.body || "{}");
+    if (!body.email || !body.password || body.password.length < 12) {
+      return Promise.reject(new Error("Use an email and a password of at least 12 characters."));
+    }
+    const user = {
+      id: "hosted-owner",
+      email: body.email.toLowerCase(),
+      role: "owner",
+      createdAt: new Date().toISOString()
+    };
+    localStorage.setItem(LOCAL_SESSION_KEY, JSON.stringify(user));
+    if (!localStorage.getItem(LOCAL_PLAN_KEY)) {
+      localStorage.setItem(LOCAL_PLAN_KEY, JSON.stringify(plan));
+    }
+    return Promise.resolve({ user, hostedFallback: true });
+  }
+  if (path === "/api/logout" && method === "POST") {
+    localStorage.removeItem(LOCAL_SESSION_KEY);
+    return Promise.resolve({ ok: true });
+  }
+  if (!session) return Promise.reject(new Error("Login required."));
+  if (path === "/api/plan" && method === "GET") return Promise.resolve({ plan, user: session });
+  if (path === "/api/plan" && method === "PUT") {
+    const body = JSON.parse(options.body || "{}");
+    localStorage.setItem(LOCAL_PLAN_KEY, JSON.stringify(body.plan || plan));
+    return Promise.resolve({ plan: body.plan || plan });
+  }
+  if (path === "/api/connectors" && method === "GET") {
+    return Promise.resolve({
+      connectors: [
+        {
+          id: "hosted_static",
+          name: "Hosted demo mode",
+          provider: "Browser storage only",
+          status: "manual_required",
+          purpose: "The Vercel deployment is static until Supabase/Postgres is added.",
+          requiredEnv: ["SUPABASE_URL", "SUPABASE_ANON_KEY"]
+        }
+      ]
+    });
+  }
+  if (path === "/api/audit" && method === "GET") return Promise.resolve({ audit: [] });
+  return Promise.reject(new Error("Not available in hosted static mode."));
 }
 
 function money(value) {
@@ -121,6 +189,10 @@ function renderAuth() {
   byId("authHelp").textContent = setupRequired
     ? "The first account becomes the owner. Use a strong password; this local MVP stores hashed credentials and your plan on this machine."
     : "Log in to view and update your saved AUTONOMY plan.";
+  if (!apiAvailable) {
+    byId("authHelp").textContent =
+      "Hosted demo mode uses browser storage only. Use the local Node server or Supabase-backed version for real financial data.";
+  }
   if (currentUser) byId("userPill").textContent = `${currentUser.email} · ${currentUser.role}`;
 }
 
