@@ -59,3 +59,16 @@ test('password recovery requests are persistently rate limited',async()=>{
  const c=client(createMock());for(let i=0;i<3;i++)assert.equal((await c.request('/api/auth/recover','POST',{email:'test@example.test'})).status,200);
  assert.equal((await c.request('/api/auth/recover','POST',{email:'TEST@example.test'})).status,429);
 });
+test('resend confirmation shares the recovery email rate limit',async()=>{
+ const c=client(createMock());for(let i=0;i<3;i++)assert.equal((await c.request('/api/auth/resend','POST',{email:'test@example.test'})).status,200);
+ assert.equal((await c.request('/api/auth/recover','POST',{email:'test@example.test'})).status,429);
+});
+test('email redirect sessions validate tokens and bind them to the same account',async()=>{
+ const mock=createMock(),a=client(mock),b=client(mock),callback=client(mock);await a.signup('a@example.test');await b.signup('b@example.test');
+ const tokens=c=>Object.fromEntries(c.cookie().split('; ').map(s=>{const i=s.indexOf('=');return [s.slice(0,i).replace('autonomy_','')+'_token',s.slice(i+1)];}));
+ assert.equal((await callback.request('/api/auth/email-session','POST',tokens(a))).status,200);
+ assert.equal((await callback.request('/api/session')).data.user.email,'a@example.test');
+ const other=client(mock);assert.equal((await other.request('/api/auth/email-session','POST',{...tokens(a),refresh_token:tokens(b).refresh_token})).status,401);
+ assert.equal((await other.request('/api/session')).data.user,null);
+ assert.equal((await other.request('/api/auth/email-session','POST',{access_token:'forged-access',refresh_token:'forged-refresh'})).status,401);
+});

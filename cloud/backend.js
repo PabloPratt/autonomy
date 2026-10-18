@@ -150,11 +150,21 @@ function makeBackend(env, fetcher=fetch){
     if(data.access_token)setSession(headers,data);
     return reply({user:data.user?{id:data.user.id,email:data.user.email}:null,confirmationRequired:!data.access_token,message:data.access_token?'Signed in.':'Check your email to confirm your account, then return here to log in.'});
    }
-   if(route==='/api/auth/recover'&&req.method==='POST'){
-    if(typeof input.email!=='string'||!/^\S+@\S+\.\S+$/.test(input.email))fail('Enter an email address.');
-    if(!await rpc('consume_rate_limit',{p_bucket:'recovery:'+await hash(input.email.trim().toLowerCase()),p_limit:3,p_window:900}))fail('Too many attempts. Try again in 15 minutes.',429);
-    await auth('recover?redirect_to='+encodeURIComponent(origin),{email:input.email});
-    return reply({message:'If an account matches, recovery instructions have been sent.'});
+   if(['/api/auth/recover','/api/auth/resend'].includes(route)&&req.method==='POST'){
+    if(typeof input.email!=='string'||input.email.length>254||!/^\S+@\S+\.\S+$/.test(input.email.trim()))fail('Enter an email address.');
+    const email=input.email.trim().toLowerCase(),resend=route.endsWith('resend');
+    if(!await rpc('consume_rate_limit',{p_bucket:'email:'+await hash(email),p_limit:3,p_window:900}))fail('Too many attempts. Try again in 15 minutes.',429);
+    await auth((resend?'resend':'recover')+'?redirect_to='+encodeURIComponent(origin),{email,...(resend?{type:'signup'}:{})});
+    return reply({message:resend?'If an unconfirmed account matches, a new confirmation email has been requested. Use the newest email.':'If an account matches, recovery instructions have been sent.'});
+   }
+   if(route==='/api/auth/email-session'&&req.method==='POST'){
+    if(typeof input.access_token!=='string'||input.access_token.length<10||input.access_token.length>8192||typeof input.refresh_token!=='string'||input.refresh_token.length<10||input.refresh_token.length>512)fail('Invalid email session.');
+    const original=await auth('user',undefined,input.access_token,'GET');
+    const session=await auth('token?grant_type=refresh_token',{refresh_token:input.refresh_token});
+    if(session.user?.id!==original.id)fail('Email session does not match. Request a new email link.',401);
+    const checked=await verifiedUser(new Request(origin,{headers:{cookie:'autonomy_access='+session.access_token}}),new Headers());
+    if(checked.id!==original.id||!checked.email_confirmed_at)fail('Confirm your email before signing in.',401);
+    setSession(headers,session);return reply({ok:true});
    }
    if(route==='/api/auth/verify'&&req.method==='POST'){
     if(typeof input.token_hash!=='string'||input.token_hash.length>256||!['recovery','signup'].includes(input.type))fail('Invalid verification request.');

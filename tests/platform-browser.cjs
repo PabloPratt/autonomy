@@ -66,6 +66,7 @@ const server=http.createServer(async(req,res)=>{
   const original=await page.locator('#householdSelect').inputValue();
   const second=await page.evaluate(async()=>{const r=await fetch('/api/households',{method:'POST',headers:{'Content-Type':'application/json','X-Autonomy-Client':'web'},body:JSON.stringify({name:'Second household'})});return (await r.json()).id;});
   await page.reload();await page.locator('#metrics .metric').first().waitFor();
+  if(await page.locator('#toggleNav').isVisible())await page.locator('#toggleNav').click();
   await page.locator('[data-view="settings"]').click();await page.locator('#cashBalance').fill('321');await page.locator('#cashBalance').dispatchEvent('change');
   let releaseSave;const heldSave=new Promise(r=>releaseSave=r);let saveStarted;const saveStart=new Promise(r=>saveStarted=r);
   await page.route('**/api/plan',async route=>{saveStarted();await heldSave;await route.continue();});

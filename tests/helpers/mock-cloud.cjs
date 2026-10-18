@@ -21,7 +21,7 @@ function createMock(){
    }
    if(route==='user')return session?reply(session.user):reply({message:'Invalid token'},401);
    if(route==='logout'){for(const [id,s]of sessions)if(s.token===token)sessions.delete(id);return reply(undefined,204);}
-   if(route==='recover')return reply({});
+   if(route==='recover'||route==='resend')return reply({});
   }
   const route=url.pathname.split('/rest/v1/')[1];
   if(route?.startsWith('rpc/')){
