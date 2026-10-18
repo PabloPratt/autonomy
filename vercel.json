@@ -1,15 +1,71 @@
 {
   "version": 2,
   "builds": [
-    { "src": "index.html", "use": "@vercel/static" },
-    { "src": "styles.css", "use": "@vercel/static" },
-    { "src": "app.js", "use": "@vercel/static" }
+    {
+      "src": "index.html",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "styles.css",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "app.js",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "model.js",
+      "use": "@vercel/static"
+    },
+    {
+      "src": "runtime.json",
+      "use": "@vercel/static"
+    }
   ],
   "routes": [
-    { "src": "/", "dest": "/index.html" },
-    { "src": "/index.html", "dest": "/index.html" },
-    { "src": "/styles.css", "dest": "/styles.css" },
-    { "src": "/app.js", "dest": "/app.js" }
+    {
+      "src": "/(.*)",
+      "headers": {
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer",
+        "X-Frame-Options": "DENY",
+        "Cache-Control": "no-store",
+        "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+      },
+      "continue": true
+    },
+    {
+      "src": "/api/session",
+      "dest": "/runtime.json"
+    },
+    {
+      "src": "/",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/index\\.html",
+      "dest": "/index.html"
+    },
+    {
+      "src": "/styles\\.css",
+      "dest": "/styles.css"
+    },
+    {
+      "src": "/app\\.js",
+      "dest": "/app.js"
+    },
+    {
+      "src": "/model\\.js",
+      "dest": "/model.js"
+    },
+    {
+      "src": "/runtime\\.json",
+      "dest": "/runtime.json"
+    },
+    {
+      "src": "/.*",
+      "status": 404
+    }
   ]
 }
 

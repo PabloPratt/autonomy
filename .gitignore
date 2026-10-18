@@ -3,4 +3,5 @@ data/
 .env.local
 node_modules/
 .vercel
+test-results/
 
