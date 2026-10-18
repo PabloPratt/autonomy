@@ -1,0 +1,24 @@
+{
+  "version": "0.3.0",
+  "url": "https://autonomy-wheat.vercel.app",
+  "deploymentId": "dpl_A5yGCrhMmcLTUYe41EMmu4MqPTXC",
+  "deploymentStatus": "READY",
+  "productLaunchReady": false,
+  "sourceCommit": "7728cb8e4777c399761c43ac5111530a85e590ef",
+  "supabaseProject": "mswszuvtffztattslfzg",
+  "edgeFunctionVersion": 3,
+  "automatedTestsPassed": 22,
+  "liveIntegrationChecksPassed": 21,
+  "browserChecks": "desktop/mobile passed against isolated backend transport; live page/API HTTP checks passed",
+  "githubSynced": false,
+  "githubBlocker": "Connector 403 Resource not accessible by integration; direct Git networking blocked",
+  "remaining": [
+    "Custom SMTP and auth email redirect/template configuration",
+    "Live Plaid credentials and product approval",
+    "Live Argyle credentials and employer coverage",
+    "Verified email sender for outgoing reminders",
+    "Credit bureau/score provider access",
+    "Approved money-movement integration, destinations, mandates, execution and reconciliation tests"
+  ],
+  "rollbackDeployment": "dpl_3JTKkEkNeQdePgEamhYfYpo5mtTY"
+}
