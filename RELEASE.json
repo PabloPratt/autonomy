@@ -1,24 +1,25 @@
 {
   "version": "0.3.0",
   "url": "https://autonomy-wheat.vercel.app",
-  "deploymentId": "dpl_A5yGCrhMmcLTUYe41EMmu4MqPTXC",
+  "deploymentId": "dpl_86CHVpApJpwNtgTgiJFtaw6edjAr",
   "deploymentStatus": "READY",
   "productLaunchReady": false,
-  "sourceCommit": "7728cb8e4777c399761c43ac5111530a85e590ef",
+  "sourceCommit": "5627b1f331edbd9010a9f8ca87030c94c38791ef",
   "supabaseProject": "mswszuvtffztattslfzg",
-  "edgeFunctionVersion": 3,
-  "automatedTestsPassed": 22,
-  "liveIntegrationChecksPassed": 21,
+  "edgeFunctionVersion": 4,
+  "automatedTestsPassed": 27,
+  "liveIntegrationChecksPassed": 29,
   "browserChecks": "desktop/mobile passed against isolated backend transport; live page/API HTTP checks passed",
   "githubSynced": false,
   "githubBlocker": "Connector 403 Resource not accessible by integration; direct Git networking blocked",
   "remaining": [
-    "Custom SMTP and auth email redirect/template configuration",
+    "Custom SMTP and auth email redirect/template configuration; leaked-password protection disabled",
     "Live Plaid credentials and product approval",
     "Live Argyle credentials and employer coverage",
     "Verified email sender for outgoing reminders",
     "Credit bureau/score provider access",
     "Approved money-movement integration, destinations, mandates, execution and reconciliation tests"
   ],
-  "rollbackDeployment": "dpl_3JTKkEkNeQdePgEamhYfYpo5mtTY"
+  "rollbackDeployment": "dpl_3JTKkEkNeQdePgEamhYfYpo5mtTY",
+  "accountConfirmationFix": "Verification screen corrected; private confirmation message sent to account owner, pending owner click"
 }
