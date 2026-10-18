@@ -63,6 +63,15 @@ const server=http.createServer(async(req,res)=>{
   await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await page.screenshot({path:path.join(ROOT,'test-results','platform-mobile.png'),fullPage:true});
   assert.deepEqual(errors,[]);await ctx.close();
+  const verifyContext=await browser.newContext(),verifyPage=await verifyContext.newPage();
+  await verifyPage.goto(base+'/#token_hash=synthetic-unused-hash&type=signup');
+  await verifyPage.locator('#verifySubmit').waitFor({state:'visible'});
+  assert.equal(await verifyPage.locator('#verifyPanel').evaluate(e=>e.open),true);
+  assert.equal(await verifyPage.locator('#verifySubmit').innerText(),'Confirm my email');
+  assert.equal(await verifyPage.locator('#verifyToken').inputValue(),'synthetic-unused-hash');
+  assert.equal(await verifyPage.locator('#authForm').isVisible(),false);
+  assert.equal(await verifyPage.evaluate(()=>location.hash),'');
+  await verifyContext.close();
   console.log('PASS: cloud UI signup/login, household creation, income/bills/debt/goals, shared save/reload, paycheck plan, paid checklist, reminders/calendar, CSV, dispute draft, household invitation, viewer restrictions, provider status, desktop/mobile.');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>server.close());

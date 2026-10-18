@@ -12,7 +12,7 @@
 <button id="forgot" class="link-button">Forgot your password?</button>
 <p id="authDeploymentStatus" class="callout hidden" role="status"></p>
 <p id="authMessage" role="status"></p>
-<details><summary>Confirm an email or finish password recovery</summary><p>If your email link did not return here, paste the verification link below. It is used only to complete your sign-in.</p><form id="verifyForm"><label>Verification link or token hash<input id="verifyToken" autocomplete="off" required></label><label>Purpose<select id="verifyType"><option value="signup">Confirm account</option><option value="recovery">Reset password</option></select></label><button>Verify</button></form></details>
+<details id="verifyPanel"><summary>Confirm an email or finish password recovery</summary><p>If your email link did not return here, paste the verification link below. It is used only to complete your sign-in.</p><form id="verifyForm"><label>Verification link or token hash<input id="verifyToken" autocomplete="off" required></label><label>Purpose<select id="verifyType"><option value="signup">Confirm account</option><option value="recovery">Reset password</option></select></label><button id="verifySubmit" class="primary">Verify</button></form></details>
 <p class="small muted">Real accounts and cloud storage. Your household's members can see its shared financial information. Bank and payroll credentials are entered only in their provider's secure connection window.</p>
 </div></section>
 <div id="app" class="hidden">
