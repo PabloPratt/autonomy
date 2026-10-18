@@ -62,6 +62,24 @@ const server=http.createServer(async(req,res)=>{
   await page.screenshot({path:path.join(ROOT,'test-results','platform-desktop.png'),fullPage:true});
   await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   await page.screenshot({path:path.join(ROOT,'test-results','platform-mobile.png'),fullPage:true});
+  // A pending save must keep its household; a failed switch must restore the old draft.
+  const original=await page.locator('#householdSelect').inputValue();
+  const second=await page.evaluate(async()=>{const r=await fetch('/api/households',{method:'POST',headers:{'Content-Type':'application/json','X-Autonomy-Client':'web'},body:JSON.stringify({name:'Second household'})});return (await r.json()).id;});
+  await page.reload();await page.locator('#metrics .metric').first().waitFor();
+  await page.locator('[data-view="settings"]').click();await page.locator('#cashBalance').fill('321');await page.locator('#cashBalance').dispatchEvent('change');
+  let releaseSave;const heldSave=new Promise(r=>releaseSave=r);let saveStarted;const saveStart=new Promise(r=>saveStarted=r);
+  await page.route('**/api/plan',async route=>{saveStarted();await heldSave;await route.continue();});
+  await page.locator('#save').click();await saveStart;assert.equal(await page.locator('#householdSelect').isDisabled(),true);
+  await page.locator('#householdSelect').evaluate((el,id)=>{el.value=id;el.dispatchEvent(new Event('change'));},second);
+  assert.equal(await page.locator('#householdSelect').inputValue(),original);releaseSave();
+  await page.waitForFunction(()=>document.querySelector('#saveStatus').textContent.startsWith('Saved to'));await page.unroute('**/api/plan');
+  assert.equal(mock.tables.household_plans.find(p=>p.household_id===original).data.cashBalance,321);
+  assert.equal(mock.tables.household_plans.find(p=>p.household_id===second).data.cashBalance,0);
+  await page.route('**/api/household?household='+second,route=>route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'Synthetic unavailable household'})}));
+  await page.locator('#householdSelect').selectOption(second);await page.waitForFunction(id=>document.querySelector('#householdSelect').value===id,original);
+  assert.equal(await page.locator('#cashBalance').inputValue(),'321');assert.equal(await page.locator('#save').isDisabled(),false);
+  await page.locator('#timezone').fill('Invalid/Timezone');await page.locator('#timezone').dispatchEvent('change');
+  assert.equal(await page.locator('#timezone').evaluate(e=>e.checkValidity()),false);
   assert.deepEqual(errors,[]);await ctx.close();
   const verifyContext=await browser.newContext(),verifyPage=await verifyContext.newPage();
   await verifyPage.goto(base+'/#token_hash=synthetic-unused-hash&type=signup');
@@ -71,6 +89,11 @@ const server=http.createServer(async(req,res)=>{
   assert.equal(await verifyPage.locator('#verifyToken').inputValue(),'synthetic-unused-hash');
   assert.equal(await verifyPage.locator('#authForm').isVisible(),false);
   assert.equal(await verifyPage.evaluate(()=>location.hash),'');
+  let verification;
+  await verifyPage.route('**/api/auth/verify',route=>{verification=route.request().postDataJSON();return route.fulfill({status:400,contentType:'application/json',body:JSON.stringify({error:'Synthetic link used only to test parsing'})});});
+  await verifyPage.locator('#verifyToken').fill(base+'/#token_hash=synthetic-recovery&type=recovery');await verifyPage.locator('#verifySubmit').click();
+  await verifyPage.waitForFunction(()=>document.querySelector('#toast').textContent.includes('Synthetic link'));
+  assert.deepEqual(verification,{token_hash:'synthetic-recovery',type:'recovery'});
   await verifyContext.close();
   console.log('PASS: cloud UI signup/login, household creation, income/bills/debt/goals, shared save/reload, paycheck plan, paid checklist, reminders/calendar, CSV, dispute draft, household invitation, viewer restrictions, provider status, desktop/mobile.');
  }finally{await browser.close();}

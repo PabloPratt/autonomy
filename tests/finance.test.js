@@ -44,6 +44,24 @@ test('payoff uses fixed total budget and reports impossible plans honestly',()=>
 test('debt alone never produces an invented credit score',()=>{
  const p=F.defaults();p.debts=[debt('card',1000,20,50)];const c=F.credit(p);assert.equal(c.latest,null);assert.equal(c.utilization,10);
 });
+test('completed goals and paid-off debts stop reducing monthly room',()=>{
+ const p=F.defaults();p.incomes=[income('pay',1000,'monthly','2026-10-20')];p.extraDebtMonthly=500;
+ p.goals=[{id:'done',name:'Done',target:100,saved:100,monthly:200,targetDate:''},{id:'almost',name:'Almost',target:100,saved:90,monthly:200,targetDate:''}];
+ assert.equal(F.totals(p).saving,10);assert.equal(F.totals(p).free,990);
+ p.debts=[debt('small',50,0,20)];assert.equal(F.totals(p).free,940);
+});
+test('reserved bill money follows the next unpaid occurrence',()=>{
+ const p=F.defaults();p.bills=[{...bill('rent',1000,1),reserved:300,paidMonths:['2026-10']}];
+ const rows=F.obligations(p,'2026-10-18',90);assert.equal(rows[0].date,'2026-11-01');assert.equal(rows[0].reserved,300);assert.equal(rows[1].reserved,0);
+});
+test('paycheck planning includes bills when the first pay date is more than 35 days away',()=>{
+ const p=F.defaults();p.incomes=[income('pay',2000,'monthly','2026-12-20')];p.bills=[{...bill('rent',1000,25),paidMonths:['2026-10','2026-11']}];
+ const pc=F.paycheckPlan(p,'2026-10-18');assert.equal(pc.allocations.find(a=>a.kind==='bill').due,'2026-12-25');assert.equal(pc.allocations.find(a=>a.kind==='bill').allocated,1000);
+});
+test('spending handles category and merchant names matching object properties',()=>{
+ const rows=[{name:'constructor',category:'__proto__',amount:10,date:'2026-10-10'},{name:'toString',category:'constructor',amount:20,date:'2026-10-11'}];
+ const i=F.spendingInsights(rows,'2026-10-18');assert.equal(i.spent,30);assert.ok(i.categories.some(([k,v])=>k==='__proto__'&&v===10));
+});
 test('spending excludes pending rows and transfers and respects date window',()=>{
  const rows=[{name:'Grocery',amount:100,date:'2026-10-10',category:'Food'},{name:'Transfer',amount:1000,date:'2026-10-10',category:'Other',is_transfer:true},{name:'Pending',amount:100,date:'2026-10-10',category:'Other',pending:true},{name:'Old',amount:100,date:'2026-01-01',category:'Other'},{name:'Pay',amount:-2000,date:'2026-10-10',category:'Income'}];
  const i=F.spendingInsights(rows,'2026-10-18');assert.equal(i.spent,100);assert.equal(i.income,2000);

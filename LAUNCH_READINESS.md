@@ -21,13 +21,23 @@ The cloud rebuild is implemented and verified; the full product is not launch-re
 | Signup / recovery | Code implemented; custom SMTP and auth email-link settings still required |
 
 ## Evidence
-- 22 automated Node tests passed.
+- 27 automated Node tests passed, including completed savings targets, reserved
+  bill funds after payment, distant pay dates, unusual transaction categories,
+  expired-session logout and recovery request rate limits.
 - Desktop/mobile browser checks passed, with no page errors.
-- 21 checks passed against real Supabase Auth/Postgres: login, household creation,
+  Checks also cover saving while switching households, failed household loads,
+  invalid timezones and pasted recovery links.
+- 29 checks passed through the production Vercel API and real Supabase Auth/Postgres: login, household creation,
   sharing, wrong-email rejection, viewer write rejection, saved-plan persistence,
   stale-write rejection, direct database RLS rejection, provider-secret denial,
-  role changes, removal and revoked-session rejection.
-- Supabase security advisors reported no lints.
+  role changes, removal, revoked-session rejection, expired-session logout,
+  signup token confirmation, one-time-token replay rejection, recovery,
+  password change, old-password rejection and new-password login.
+  Test links were generated for temporary accounts; this does not verify
+  general outbound email delivery.
+- Latest Supabase security check warns that leaked-password protection is
+  disabled. Auth configuration access is required to enable it:
+  https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection
 - Preview page, cloud session and provider-status endpoints returned 200.
   Backend source URLs returned 404.
 - Browser automation cannot reach external URLs in the local sandbox; live HTTP
@@ -48,3 +58,8 @@ Activate SMTP/auth URLs, live bank/payroll products, a bureau feed if wanted, an
 an appropriate approved money-movement service with verified destinations and
 end-to-end execution/reconciliation tests. Never bypass email confirmation,
 fabricate scores, or label recommendations as executed transactions.
+
+The owner's confirmation email arrived, but its original link redirected to
+localhost. A corrected private link was sent; account confirmation remains
+pending the owner's click. That workaround does not activate general signup
+email delivery or correct the provider's default link configuration.

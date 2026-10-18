@@ -90,7 +90,8 @@ function obligations(p,today=iso(new Date()),days=60){
    for(const row of rows){
     const amount=kind==='debt'?Math.min(row.minimum,row.balance):row.amount;
     const due=occurrence(row,month);if(due>end||amount<=0||row.paidMonths.includes(month))continue;
-    items.push({id:row.id,kind,name:row.name,date:due,amount,reserved:offset===0?row.reserved:0,overdue:due<today,autopay:row.autopay||false,url:row.url});
+    const isNextUnpaid=!items.some(i=>i.kind===kind&&i.id===row.id);
+    items.push({id:row.id,kind,name:row.name,date:due,amount,reserved:isNextUnpaid?row.reserved:0,overdue:due<today,autopay:row.autopay||false,url:row.url});
    }
   }
  }
@@ -98,8 +99,9 @@ function obligations(p,today=iso(new Date()),days=60){
 }
 function totals(p){
  const bills=sum(p.bills,'amount'),essentials=sum(p.variables,'amount'),other=sum(p.spending,'amount'),minimums=round(p.debts.reduce((n,d)=>n+Math.min(d.balance,d.minimum),0));
- const income=monthlyIncome(p),spending=round(bills+essentials+other+minimums),saving=sum(p.goals,'monthly');
- return {income,bills,essentials,other,minimums,spending,saving,free:round(income-spending-saving-p.extraDebtMonthly),debt:sum(p.debts,'balance'),reserve:round(spending*p.monthsToCover*(1+p.bufferPct/100)),runway:spending?p.cashBalance/spending:null};
+ const income=monthlyIncome(p),spending=round(bills+essentials+other+minimums),saving=round(p.goals.reduce((n,g)=>n+Math.min(g.monthly,Math.max(0,g.target-g.saved)),0));
+ const debt=sum(p.debts,'balance'),extraDebt=Math.min(p.extraDebtMonthly,Math.max(0,debt-minimums));
+ return {income,bills,essentials,other,minimums,spending,saving,extraDebt,free:round(income-spending-saving-extraDebt),debt,reserve:round(spending*p.monthsToCover*(1+p.bufferPct/100)),runway:spending?p.cashBalance/spending:null};
 }
 function paycheckPlan(p,today=iso(new Date())){
  const checks=paydays(p,today,90);
@@ -109,9 +111,9 @@ function paycheckPlan(p,today=iso(new Date())){
  let remaining=amount,shortfall=0;const allocations=[];
  const take=(name,need,kind,due)=>{need=round(Math.max(0,need));const allocated=round(Math.min(remaining,need));remaining=round(remaining-allocated);shortfall=round(shortfall+need-allocated);allocations.push({name,need,allocated,kind,due:due||'',shortfall:round(need-allocated)});};
  // Sinking funds split each remaining obligation across pay dates before its due date.
- for(const bill of obligations(p,today,35)){
+ const horizon=Math.ceil((date(first.date)-date(today))/DAY)+32,upcoming=obligations(p,today,horizon);
+ for(const bill of upcoming){
   if(bill.date>iso(add(date(first.date),32)))continue;
-  const currentMonth=first.date.slice(0,7);
   // Only the next unpaid occurrence per bill/debt is funded in this check.
   if(allocations.some(a=>a.kind===bill.kind&&a.itemId===bill.id))continue;
   const eligible=new Set(checks.filter(c=>c.date>=first.date&&c.date<=bill.date).map(c=>c.date)).size||1;
@@ -125,7 +127,7 @@ function paycheckPlan(p,today=iso(new Date())){
  const priority=[...p.debts].filter(d=>d.balance>0).sort((a,b)=>p.debtStrategy==='snowball'?a.balance-b.balance:b.apr-a.apr);
  if(priority.length&&p.extraDebtMonthly){const minimumAlreadyAllocated=allocations.filter(a=>a.kind==='debt'&&a.itemId===priority[0].id).reduce((n,a)=>n+a.allocated,0);take('Extra: '+priority[0].name,Math.min(Math.max(0,priority[0].balance-minimumAlreadyAllocated),p.extraDebtMonthly*period/averageMonth),'extra_debt');}
  return {checks:sameDay,date:first.date,nextDate:next?.date,period,allocations,total:amount,left:remaining,shortfall,
-  warnings:[...(obligations(p,today,35).some(b=>b.date<first.date)?['Some bills are due before this paycheck. Use existing available cash or contact the provider; this paycheck arrives too late.']:[]),...(shortfall>0?['The check cannot cover all planned allocations. Amounts are capped at take-home pay.']:[])]};
+  warnings:[...(upcoming.some(b=>b.date<first.date)?['Some bills are due before this paycheck. Use existing available cash or contact the provider; this paycheck arrives too late.']:[]),...(shortfall>0?['The check cannot cover all planned allocations. Amounts are capped at take-home pay.']:[])]};
 }
 function payoff(p,extra=p.extraDebtMonthly){
  const rows=p.debts.filter(d=>d.balance>0).map(d=>({...d,balance:round(d.balance)})),minimumBudget=sum(rows,'minimum'),budget=round(minimumBudget+extra);
@@ -144,8 +146,8 @@ function payoff(p,extra=p.extraDebtMonthly){
 }
 function spendingInsights(transactions,today=iso(new Date())){
  const cutoff=iso(add(date(today),-30)),rows=transactions.filter(t=>t.date>=cutoff&&t.date<=today&&!t.pending&&!t.is_transfer);
- const groups={};for(const t of rows){if(t.amount<=0)continue;const k=t.category||'Other';groups[k]=round((groups[k]||0)+t.amount);}
- const merchants={};for(const t of transactions.filter(t=>t.amount>0&&!t.pending&&!t.is_transfer)){const k=t.name.toLowerCase().replace(/\d+/g,'').trim();(merchants[k]??=[]).push(t);}
+ const groups=Object.create(null);for(const t of rows){if(t.amount<=0)continue;const k=t.category||'Other';groups[k]=round((groups[k]||0)+t.amount);}
+ const merchants=Object.create(null);for(const t of transactions.filter(t=>t.amount>0&&!t.pending&&!t.is_transfer)){const k=t.name.toLowerCase().replace(/\d+/g,'').trim();(merchants[k]??=[]).push(t);}
  const recurring=Object.values(merchants).filter(a=>new Set(a.map(t=>t.date.slice(0,7))).size>=2&&a.length>=2&&a.length<=12).map(a=>({name:a[0].name,amount:round(a.reduce((n,t)=>n+t.amount,0)/a.length),occurrences:a.length}));
  const income=round(-rows.filter(t=>t.amount<0).reduce((n,t)=>n+t.amount,0));
  return {categories:Object.entries(groups).sort((a,b)=>b[1]-a[1]),spent:round(Object.values(groups).reduce((a,b)=>a+b,0)),income,recurring};

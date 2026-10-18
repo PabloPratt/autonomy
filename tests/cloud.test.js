@@ -53,4 +53,9 @@ test('request origin, content type, credentials and input validation fail closed
 });
 test('persistent session check rejects a revoked access token even if auth user exists',async()=>{
  const mock=createMock(),c=client(mock);await c.signup('test@example.test');mock.sessions.clear();assert.equal((await c.request('/api/households')).status,401);
+ assert.equal((await c.request('/api/auth/logout','POST',{})).status,200);assert.match(c.cookie(),/autonomy_access=;/);
+});
+test('password recovery requests are persistently rate limited',async()=>{
+ const c=client(createMock());for(let i=0;i<3;i++)assert.equal((await c.request('/api/auth/recover','POST',{email:'test@example.test'})).status,200);
+ assert.equal((await c.request('/api/auth/recover','POST',{email:'TEST@example.test'})).status,429);
 });

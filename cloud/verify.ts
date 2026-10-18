@@ -7,18 +7,18 @@ Deno.serve(async request=>{
  const secretResponse=await fetch(base+'/rest/v1/rpc/get_worker_secret',{method:'POST',headers,body:'{}'});
  const secret=await secretResponse.json();
  if(request.headers.get('x-worker-secret')!==secret)return new Response('Unauthorized',{status:401});
- const handle=globalThis.makeBackend(env),users=[],households=[],results=[];
+ const handle=(req:Request)=>fetch(req),users=[],households=[],results=[];
  async function upstream(path,method='GET',body){
   const r=await fetch(base+path,{method,headers,...(body===undefined?{}:{body:JSON.stringify(body)})});
   const data=await r.json().catch(()=>null);if(!r.ok)throw Error('Verification setup request failed: '+r.status);return data;
  }
  function check(condition,name){if(!condition)throw Error(name);results.push(name);}
- function client(){let cookie='',access='';return {
+ function client(){const jar=new Map();return {
   request:async(path,method='GET',body)=>{
-   const r=await handle(new Request('https://autonomy-wheat.vercel.app'+path,{method,headers:{Cookie:cookie,'Content-Type':'application/json','X-Autonomy-Client':'web'},...(body===undefined?{}:{body:JSON.stringify(body)})}));
-   const set=r.headers.getSetCookie();if(set.length){cookie=set.map(x=>x.split(';')[0]).join('; ');access=set.find(x=>x.startsWith('autonomy_access='))?.split(';')[0].slice('autonomy_access='.length)||access;}
+   const r=await handle(new Request('https://autonomy-wheat.vercel.app'+path,{method,headers:{Cookie:[...jar].map(([k,v])=>k+'='+v).join('; '),'Content-Type':'application/json','X-Autonomy-Client':'web'},...(body===undefined?{}:{body:JSON.stringify(body)})}));
+   for(const line of r.headers.getSetCookie()){const pair=line.split(';')[0],i=pair.indexOf('='),key=pair.slice(0,i),value=pair.slice(i+1);if(/max-age=0(?:;|$)/i.test(line))jar.delete(key);else jar.set(key,value);}
    const text=await r.text();let data;try{data=JSON.parse(text);}catch{data=text;}return {status:r.status,data};
-  },access:()=>access
+  },access:()=>jar.get('autonomy_access')||''
  };}
  try{
   const password=crypto.randomUUID()+crypto.randomUUID(),suffix=crypto.randomUUID();
@@ -29,7 +29,7 @@ Deno.serve(async request=>{
   check(fresh.status===201,'create_household_transaction');const h=fresh.data.id;households.push(h);
   check((await b.request('/api/household?household='+h)).status===403,'reject_unrelated_user');
   const invite=await a.request('/api/invitations','POST',{householdId:h,email:users[1].email,role:'viewer'});
-  check(invite.status===200,'create_email_bound_invitation');const token=new URL(invite.data.url).hash.split('=')[1];
+  check(invite.status===200,'create_email_bound_invitation status='+invite.status+' error='+String(invite.data.error||''));const token=new URL(invite.data.url).hash.split('=')[1];
   check((await c.request('/api/invitations/accept','POST',{token})).status>=400,'reject_wrong_invited_email');
   check((await b.request('/api/invitations/accept','POST',{token})).status===200,'accept_verified_invited_email');
   check((await b.request('/api/household?household='+h)).status===200,'shared_household_read');
@@ -48,10 +48,25 @@ Deno.serve(async request=>{
   check((await b.request('/api/household?household='+h)).status===403,'removed_member_loses_access');
   check((await a.request('/api/auth/logout','POST',{})).status===200,'logout');
   check((await a.request('/api/households')).status===401,'revoked_session_rejected');
+  check((await a.request('/api/auth/logout','POST',{})).status===200,'expired_session_logout');
+  const email='autonomy-verification-'+suffix+'-signup@example.invalid';
+  const signup=await upstream('/auth/v1/admin/generate_link','POST',{type:'signup',email,password});
+  users.push(signup.user||signup);const freshAccount=client();
+  check((await freshAccount.request('/api/auth/verify','POST',{token_hash:signup.hashed_token,type:'signup'})).status===200,'confirm_real_signup_hash');
+  check((await freshAccount.request('/api/session')).data.user?.email===email,'confirmation_establishes_session');
+  check((await client().request('/api/auth/verify','POST',{token_hash:signup.hashed_token,type:'signup'})).status>=400,'confirmation_replay_rejected');
+  await freshAccount.request('/api/auth/logout','POST',{});
+  const recovery=await upstream('/auth/v1/admin/generate_link','POST',{type:'recovery',email});
+  check((await freshAccount.request('/api/auth/verify','POST',{token_hash:recovery.hashed_token,type:'recovery'})).status===200,'verify_real_recovery_hash');
+  const replacement=crypto.randomUUID()+crypto.randomUUID();
+  check((await freshAccount.request('/api/auth/password','PUT',{password:replacement})).status===200,'recovery_changes_test_password');
+  await freshAccount.request('/api/auth/logout','POST',{});
+  check([400,401].includes((await freshAccount.request('/api/auth/login','POST',{email,password})).status),'old_test_password_rejected');
+  check((await freshAccount.request('/api/auth/login','POST',{email,password:replacement})).status===200,'new_test_password_login');
   return Response.json({ok:true,checks:results});
  }catch(error){return Response.json({ok:false,checks:results,failed:error.message},{status:500});}
  finally{
   for(const h of households)await fetch(base+'/rest/v1/households?id=eq.'+h,{method:'DELETE',headers});
-  for(const u of users)await fetch(base+'/auth/v1/admin/users/'+u.id,{method:'DELETE',headers});
+  for(const u of users)if(u?.id)await fetch(base+'/auth/v1/admin/users/'+u.id,{method:'DELETE',headers});
  }
 });

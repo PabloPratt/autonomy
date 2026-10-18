@@ -152,6 +152,7 @@ function makeBackend(env, fetcher=fetch){
    }
    if(route==='/api/auth/recover'&&req.method==='POST'){
     if(typeof input.email!=='string'||!/^\S+@\S+\.\S+$/.test(input.email))fail('Enter an email address.');
+    if(!await rpc('consume_rate_limit',{p_bucket:'recovery:'+await hash(input.email.trim().toLowerCase()),p_limit:3,p_window:900}))fail('Too many attempts. Try again in 15 minutes.',429);
     await auth('recover?redirect_to='+encodeURIComponent(origin),{email:input.email});
     return reply({message:'If an account matches, recovery instructions have been sent.'});
    }
@@ -160,9 +161,12 @@ function makeBackend(env, fetcher=fetch){
     const data=await auth('verify',{token_hash:input.token_hash,type:input.type});setSession(headers,data);return reply({ok:true});
    }
    if(route==='/api/session'&&req.method==='GET'){const u=await verifiedUser(req,headers,true);return reply({mode:'cloud',user:u?{id:u.id,email:u.email}:null});}
+   if(route==='/api/auth/logout'&&req.method==='POST'){
+    try{const u=await verifiedUser(req,headers,true);if(u)await auth('logout?scope=local',{},u.token);}finally{clearSession(headers);}
+    return reply({ok:true});
+   }
    const user=await verifiedUser(req,headers);
    if(!await rpc('consume_rate_limit',{p_bucket:'api:'+user.id,p_limit:300,p_window:60}))fail('Too many requests. Try again in a minute.',429);
-   if(route==='/api/auth/logout'&&req.method==='POST'){await auth('logout?scope=local',{},user.token);clearSession(headers);return reply({ok:true});}
    if(route==='/api/auth/password'&&req.method==='PUT'){
     if(typeof input.password!=='string'||input.password.length<12||input.password.length>256)fail('Use at least 12 characters.');
     await auth('user',{password:input.password},user.token,'PUT');return reply({ok:true});

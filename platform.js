@@ -10,17 +10,19 @@ async function api(path,method='GET',body){
  if(!res.ok){const e=Object.assign(new Error(data.error||'Request failed.'),{status:res.status});if(res.status===401&&user)toast('Your session ended. Export unsaved changes before reloading to log in.',true);throw e;}
  return data;
 }
-function writeAllowed(){return record&&['owner','editor'].includes(record.role);}
+let loading=false;
+function writeAllowed(){return !loading&&record?.householdId===householdId&&['owner','editor'].includes(record.role);}
 function changed(){generation++;dirty=true;$('saveStatus').textContent='Unsaved household changes';$('saveStatus').classList.remove('danger');renderSummary();}
 async function save(){
  if(saving||!writeAllowed())return false;
  try{
   const invalid=document.querySelector('#settingsFields input:invalid, #extraDebtMonthly:invalid');if(invalid){go('settings');invalid.reportValidity();toast('Correct the highlighted value before saving.',true);return false;}
-  const checked=F.validate(plan),savedGeneration=generation;saving=true;$('save').disabled=true;
+  const checked=F.validate(plan),savedGeneration=generation,target=householdId;saving=true;$('save').disabled=true;$('householdSelect').disabled=true;
   const data=await api('/api/plan','PUT',{householdId,revision,plan:checked});
+  if(target!==householdId)return false;
   revision=data.revision;if(generation===savedGeneration){plan=data.plan;dirty=false;$('saveStatus').textContent='Saved to your household · '+new Date().toLocaleTimeString();}else{$('saveStatus').textContent='New edits are unsaved. Save again to share them.';}return !dirty;
  }catch(e){$('saveStatus').textContent=e.message+' Export your draft before reloading.';$('saveStatus').classList.add('danger');toast(e.message,true);return false;}
- finally{saving=false;$('save').disabled=!writeAllowed();}
+ finally{saving=false;$('householdSelect').disabled=loading;$('save').disabled=!writeAllowed();}
 }
 function go(id){
  if(!document.querySelector('[data-pane="'+id+'"]'))return;
@@ -44,12 +46,20 @@ async function start(){
  $('householdSelect').value=householdId;await loadHousehold();go(view);
 }
 async function loadHousehold(){
- const data=await api('/api/household?household='+householdId);
- record=data;plan=F.validate(data.plan);revision=data.revision;capabilities=data.capabilities;dirty=false;
+ if(loading||saving)return;
+ const target=householdId;loading=true;$('householdSelect').disabled=true;$('save').disabled=true;
+ const panes=[...document.querySelectorAll('[data-pane]')];panes.forEach(p=>p.inert=true);
+ try{
+ const data=await api('/api/household?household='+target);
+ if(target!==householdId)return;
+ const checked=F.validate(data.plan);
+ record={...data,householdId:target};plan=checked;revision=data.revision;capabilities=data.capabilities;dirty=false;
  sessionStorage.setItem('autonomy.currentHousehold',householdId);
  $('rolePill').textContent=data.role;$('save').disabled=!writeAllowed();
  $('saveStatus').textContent=plan.updatedAt?'Saved '+new Date(plan.updatedAt).toLocaleString():'Your household plan is ready. Add your income and expenses.';
  renderAll();
+ }catch(e){if(record?.householdId){householdId=record.householdId;$('householdSelect').value=householdId;}throw e;}
+ finally{loading=false;panes.forEach(p=>p.inert=false);$('householdSelect').disabled=saving;if(record)renderAll();$('save').disabled=!writeAllowed();}
 }
 function empty(text){return '<p class="empty">'+esc(text)+'</p>';}
 function renderSummary(){
@@ -152,12 +162,12 @@ const settingDefs=[['cashBalance','Available household cash',0,1e9,.01],['cashFl
 function renderSettings(){
  $('settingsFields').innerHTML=settingDefs.map(([id,label,min,max,step])=>'<label>'+label+'<input id="'+id+'" data-setting="'+id+'" type="number" min="'+min+'" max="'+max+'" step="'+step+'" required value="'+plan[id]+'"></label>').join('')+'<label>Timezone<input id="timezone" value="'+esc(plan.timezone)+'" required></label>';
  $('settingsFields').querySelectorAll('[data-setting]').forEach(el=>el.onchange=()=>{if(!el.checkValidity()){el.reportValidity();return;}plan[el.dataset.setting]=Number(el.value);changed();});
- $('timezone').onchange=()=>{try{new Intl.DateTimeFormat('en-US',{timeZone:$('timezone').value}).format();plan.timezone=$('timezone').value;changed();}catch{toast('Use a timezone such as America/Chicago.',true);}};
+ $('timezone').onchange=()=>{try{new Intl.DateTimeFormat('en-US',{timeZone:$('timezone').value}).format();$('timezone').setCustomValidity('');plan.timezone=$('timezone').value;changed();}catch{$('timezone').setCustomValidity('Use a timezone such as America/Chicago.');toast('Use a timezone such as America/Chicago.',true);}};
  $('emailReminders').checked=plan.emailReminders;$('debtStrategy').value=plan.debtStrategy;$('extraDebtMonthly').value=plan.extraDebtMonthly;
  const disabled=!writeAllowed();$('settingsFields').querySelectorAll('input').forEach(el=>el.disabled=disabled);for(const id of ['emailReminders','debtStrategy','extraDebtMonthly','csvFile','migrate','import','runReminders'])$(id).disabled=disabled;
 }
 function renderAll(){renderSummary();renderLists();renderConnections();renderFamily();renderSettings();document.querySelectorAll('[data-add]').forEach(b=>b.disabled=!writeAllowed());}
-async function refreshSafe(){if(dirty){toast('Save or export your current changes before refreshing.',true);return;}await loadHousehold();}
+async function refreshSafe(){if(saving||loading)return;if(dirty){toast('Save or export your current changes before refreshing.',true);return;}await loadHousehold();}
 function action(fn){return async function(...args){try{await fn(...args);}catch(e){toast(e.message,true);}}();}
 function download(name,content,type='application/json'){const url=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 async function providerScript(url,globalName){if(window[globalName])return;await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=url;s.onload=resolve;s.onerror=()=>reject(Error('Unable to open the provider connection window.'));document.head.append(s);});}
@@ -188,12 +198,12 @@ async function boot(){
  function setAuthMode(mode){authMode=mode;$('authForm').classList.remove('hidden');$('authHeading').textContent=mode==='signup'?'Create your account':'Welcome back';$('authSubmit').textContent=mode==='signup'?'Create account':'Log in';$('loginMode').setAttribute('aria-pressed',mode==='login');$('signupMode').setAttribute('aria-pressed',mode==='signup');$('password').autocomplete=mode==='signup'?'new-password':'current-password';}
  $('authForm').onsubmit=async e=>{e.preventDefault();$('authSubmit').disabled=true;$('authMessage').textContent='';try{const data=await api('/api/auth/'+authMode,'POST',{email:$('email').value,password:$('password').value});$('password').value='';$('authMessage').textContent=data.message;if(!data.confirmationRequired)await start();}catch(error){$('authMessage').textContent=error.message;}finally{$('authSubmit').disabled=false;}};
  $('forgot').onclick=()=>action(async()=>{if(!$('email').value||!$('email').checkValidity()){$('email').reportValidity();return;}const data=await api('/api/auth/recover','POST',{email:$('email').value});$('authMessage').textContent=data.message;});
- $('verifyForm').onsubmit=e=>{e.preventDefault();action(async()=>{let token=$('verifyToken').value.trim();try{const url=new URL(token);token=url.searchParams.get('token')||url.searchParams.get('token_hash')||token;}catch{}await api('/api/auth/verify','POST',{token_hash:token,type:$('verifyType').value});$('verifyToken').value='';await start();if($('verifyType').value==='recovery'){go('settings');$('newPassword').focus();}});};
+ $('verifyForm').onsubmit=e=>{e.preventDefault();action(async()=>{let token=$('verifyToken').value.trim(),type=$('verifyType').value;if(/^https?:/i.test(token)){const url=new URL(token);if(![location.origin,'https://autonomy-wheat.vercel.app','https://mswszuvtffztattslfzg.supabase.co'].includes(url.origin))throw Error('Use the confirmation link from AUTONOMY.');const hash=new URLSearchParams(url.hash.slice(1));token=hash.get('token_hash')||url.searchParams.get('token_hash')||url.searchParams.get('token');type=hash.get('type')||url.searchParams.get('type')||type;}await api('/api/auth/verify','POST',{token_hash:token,type});$('verifyToken').value='';await start();if(type==='recovery'){go('settings');$('newPassword').focus();}});};
  document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>go(b.dataset.view));document.querySelectorAll('[data-go]').forEach(b=>b.onclick=()=>go(b.dataset.go));
  document.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>openEditor(b.dataset.add));
  $('save').onclick=()=>save();$('refresh').onclick=()=>action(refreshSafe);
  $('logout').onclick=()=>action(async()=>{if(dirty&&!confirm('Log out without saving your current changes? Export a backup first if needed.'))return;await api('/api/auth/logout','POST',{});dirty=false;location.reload();});
- $('householdSelect').onchange=()=>action(async()=>{if(dirty&&!confirm('Switch households and discard unsaved changes?')){$('householdSelect').value=householdId;return;}householdId=$('householdSelect').value;await loadHousehold();});
+ $('householdSelect').onchange=()=>action(async()=>{if(saving||loading){$('householdSelect').value=householdId;return;}if(dirty&&!confirm('Switch households and discard unsaved changes?')){$('householdSelect').value=householdId;return;}householdId=$('householdSelect').value;await loadHousehold();});
  $('householdForm').onsubmit=e=>{e.preventDefault();action(async()=>{const h=await api('/api/households','POST',{name:$('householdName').value});sessionStorage.setItem('autonomy.currentHousehold',h.id);await start();});};
  $('editForm').onsubmit=e=>{
   e.preventDefault();try{
@@ -227,6 +237,7 @@ async function boot(){
  window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue='';}});
  const deployment=await api('/api/config');if(!deployment.capabilities.auth?.signupReady){$('authDeploymentStatus').textContent='Confirm your email after signing up. Check your inbox and spam folder. Email delivery for all household members is still being configured.';$('authDeploymentStatus').classList.remove('hidden');}
  await start();
- setInterval(async()=>{if(!user||!householdId||dirty||saving||document.hidden)return;try{const data=await api('/api/household?household='+householdId);if(data.revision!==revision||data.role!==record.role){record=data;plan=F.validate(data.plan);revision=data.revision;capabilities=data.capabilities;renderAll();$('saveStatus').textContent='Updated from your household.';}}catch{}},30000);
+ const editing=()=>dirty||saving||loading||$('editDialog').open||document.activeElement?.matches('input,textarea,select');
+ setInterval(async()=>{if(!user||!householdId||editing()||document.hidden)return;const target=householdId;try{const data=await api('/api/household?household='+target);if(target!==householdId||editing())return;if(data.revision!==revision||data.role!==record?.role){const checked=F.validate(data.plan);record={...data,householdId:target};plan=checked;revision=data.revision;capabilities=data.capabilities;renderAll();$('rolePill').textContent=data.role;$('save').disabled=!writeAllowed();$('saveStatus').textContent='Updated from your household.';}}catch{}},30000);
 }
 boot().catch(e=>{$('authMessage').textContent=e.message;toast(e.message,true);});
