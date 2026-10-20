@@ -25,11 +25,11 @@ async function save(){
  finally{saving=false;$('householdSelect').disabled=loading;$('save').disabled=!writeAllowed();}
 }
 function go(id){
- if(!document.querySelector('[data-pane="'+id+'"]'))return;
+ if(!document.querySelector('[data-pane="'+esc(id)+'"]'))return;
  view=id;document.querySelectorAll('[data-pane]').forEach(p=>p.classList.toggle('hidden',p.dataset.pane!==id));
  document.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===id);if(b.dataset.view===id)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
  if($('toggleNav'))$('toggleNav').setAttribute('aria-expanded','false');
- $('pageTitle').textContent=document.querySelector('[data-view="'+id+'"]').textContent;window.scrollTo({top:0,behavior:'instant'});
+ $('pageTitle').textContent=document.querySelector('[data-view="'+esc(id)+'"]').textContent;window.scrollTo({top:0,behavior:'instant'});
 }
 async function start(){
  const session=await api('/api/session');user=session.user;if(!user)return;
@@ -40,7 +40,7 @@ async function start(){
   try{await api('/api/invitations/accept','POST',{token:invitation});sessionStorage.removeItem('autonomy.pendingInvite');households=(await api('/api/households')).households;toast('You joined the household.');}
   catch(e){toast(e.message,true);}
  }
- $('householdSelect').innerHTML=households.map(h=>'<option value="'+h.id+'">'+esc(h.name)+'</option>').join('');
+ $('householdSelect').innerHTML=households.map(h=>'<option value="'+esc(h.id)+'">'+esc(h.name)+'</option>').join('');
  $('noHousehold').classList.toggle('hidden',households.length>0);
  if(!households.length){document.querySelectorAll('[data-pane]').forEach(p=>p.classList.add('hidden'));$('save').disabled=true;$('saveStatus').textContent='Create a household to begin.';return;}
  householdId=households.find(h=>h.id===sessionStorage.getItem('autonomy.currentHousehold'))?.id||households[0].id;
@@ -120,8 +120,8 @@ function renderList(key,container){
   else if(key==='transactions'){description=row.date+' · '+row.category+(row.is_transfer?' · excluded transfer':'');amount=money(row.amount);}
   else if(key==='creditScores'){description=row.source+' · '+row.model+' · '+row.date;amount=row.score;}
   else amount=money(row.amount);
-  const undo=key==='bills'&&row.frequency!=='monthly'&&row.paidMonths.length&&allowed?'<button data-undo-paid="'+row.id+'">Undo last paid ('+esc(row.paidMonths.at(-1))+')</button>':'';
-  return '<div class="'+(key==='goals'?'goal-item':'')+'"><div class="data-row"><div><h3>'+esc(row.name||row.source)+'</h3><p>'+esc(description)+'</p></div><div class="row-actions"><span class="row-amount">'+amount+'</span>'+(['bills','debts'].includes(key)&&allowed?'<button data-paid="'+row.id+'">'+(paid?'Undo paid':'Mark paid')+'</button>':'')+undo+(row.url?'<a href="'+esc(row.url)+'" target="_blank" rel="noopener noreferrer">Provider website ↗</a>':'')+(allowed?'<button data-edit="'+row.id+'">Edit</button><button data-delete="'+row.id+'" class="danger">Remove</button>':'')+'</div></div>'+(key==='goals'?'<progress value="'+Math.min(row.saved,row.target)+'" max="'+row.target+'" aria-label="'+esc(row.name)+' progress"></progress>':'')+'</div>';
+  const undo=key==='bills'&&row.frequency!=='monthly'&&row.paidMonths.length&&allowed?'<button data-undo-paid="'+esc(row.id)+'">Undo last paid ('+esc(row.paidMonths.at(-1))+')</button>':'';
+  return '<div class="'+(key==='goals'?'goal-item':'')+'"><div class="data-row"><div><h3>'+esc(row.name||row.source)+'</h3><p>'+esc(description)+'</p></div><div class="row-actions"><span class="row-amount">'+amount+'</span>'+(['bills','debts'].includes(key)&&allowed?'<button data-paid="'+esc(row.id)+'">'+(paid?'Undo paid':'Mark paid')+'</button>':'')+undo+(row.url?'<a href="'+esc(row.url)+'" target="_blank" rel="noopener noreferrer">Provider website ↗</a>':'')+(allowed?'<button data-edit="'+esc(row.id)+'">Edit</button><button data-delete="'+esc(row.id)+'" class="danger">Remove</button>':'')+'</div></div>'+(key==='goals'?'<progress value="'+Math.min(row.saved,row.target)+'" max="'+row.target+'" aria-label="'+esc(row.name)+' progress"></progress>':'')+'</div>';
  }).join(''):empty('No '+definitions[key].title.toLowerCase()+' entries yet.');
  $(container).querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>openEditor(key,b.dataset.edit));
  $(container).querySelectorAll('[data-delete]').forEach(b=>b.onclick=()=>{if(!confirm('Remove this entry from your household plan?'))return;plan[key]=plan[key].filter(r=>r.id!==b.dataset.delete);changed();renderLists();});
@@ -137,7 +137,7 @@ function renderConnections(){
  for(const id of ['connectBank'])$(id).disabled=!c.banks?.ready||record.role!=='owner';
  for(const id of ['connectPayroll','connectPayroll2'])$(id).disabled=!c.payroll?.ready||record.role!=='owner';
  $('emailStatus').textContent=c.email?.ready?'Email delivery service is configured. Reminders send a generic sign-in notice, without balances in the email.':'Email delivery is not activated. In-app reminders and downloaded calendar alerts are available.';
- $('connectionList').innerHTML=record.connections.length?record.connections.map(x=>'<div class="data-row"><div><h3>'+esc(x.label||x.provider)+'</h3><p>'+esc(x.provider+' · '+x.environment+' · '+x.status)+'<br>Last sync: '+esc(x.last_sync?new Date(x.last_sync).toLocaleString():'not yet')+'</p></div>'+(record.role==='owner'?'<div class="row-actions"><button data-sync="'+x.id+'">Sync</button><button data-disconnect="'+x.id+'">Disconnect & remove imported data</button></div>':'')+'</div>').join(''):empty('No linked providers. You can still enter your plan and import transactions.');
+ $('connectionList').innerHTML=record.connections.length?record.connections.map(x=>'<div class="data-row"><div><h3>'+esc(x.label||x.provider)+'</h3><p>'+esc(x.provider+' · '+x.environment+' · '+x.status)+'<br>Last sync: '+esc(x.last_sync?new Date(x.last_sync).toLocaleString():'not yet')+'</p></div>'+(record.role==='owner'?'<div class="row-actions"><button data-sync="'+esc(x.id)+'">Sync</button><button data-disconnect="'+esc(x.id)+'">Disconnect & remove imported data</button></div>':'')+'</div>').join(''):empty('No linked providers. You can still enter your plan and import transactions.');
  $('connectionList').querySelectorAll('[data-sync]').forEach(b=>b.onclick=()=>action(async()=>{await api('/api/connections/sync','POST',{householdId,connectionId:b.dataset.sync});await refreshSafe();toast('Connection synchronized.');}));
  $('connectionList').querySelectorAll('[data-sync]').forEach(b=>{
   if(record.connections.find(c=>c.id===b.dataset.sync)?.provider!=='plaid')return;
@@ -153,12 +153,12 @@ function renderConnections(){
  $('connectionList').querySelectorAll('[data-disconnect]').forEach(b=>b.onclick=()=>action(async()=>{if(!confirm('Disconnect this provider and delete its imported accounts and transactions from the household?'))return;await api('/api/connections/disconnect','POST',{householdId,connectionId:b.dataset.disconnect});await refreshSafe();}));
  $('accountList').innerHTML=record.accounts.length?record.accounts.map(a=>'<div class="data-row"><div><h3>'+esc(a.name)+(a.mask?' · '+esc(a.mask):'')+'</h3><p>'+esc(a.type+' · '+a.currency)+' · '+new Date(a.updated_at).toLocaleString()+'</p></div><strong>'+money(a.balance)+'</strong></div>').join(''):empty('No bank accounts linked.');
  $('useBankCash').disabled=!writeAllowed()||!record.accounts.some(a=>a.type==='depository'&&a.currency==='USD');
- $('paystubList').innerHTML=record.paystubs.length?record.paystubs.map(s=>'<div class="data-row"><div><h3>'+esc(s.employer||'Payroll record')+'</h3><p>'+esc(s.pay_date)+' · '+esc(s.currency)+' · net '+money(s.net)+'</p></div>'+(writeAllowed()&&s.currency==='USD'?'<button data-paystub="'+s.id+'">Use as income</button>':'')+'</div>').join(''):empty('Connect payroll to import provider records, or enter your take-home income above.');
+ $('paystubList').innerHTML=record.paystubs.length?record.paystubs.map(s=>'<div class="data-row"><div><h3>'+esc(s.employer||'Payroll record')+'</h3><p>'+esc(s.pay_date)+' · '+esc(s.currency)+' · net '+money(s.net)+'</p></div>'+(writeAllowed()&&s.currency==='USD'?'<button data-paystub="'+esc(s.id)+'">Use as income</button>':'')+'</div>').join(''):empty('Connect payroll to import provider records, or enter your take-home income above.');
  $('paystubList').querySelectorAll('[data-paystub]').forEach(b=>b.onclick=()=>{const s=record.paystubs.find(x=>x.id===b.dataset.paystub);openEditor('incomes',null,{name:s.employer||'Payroll',amount:Number(s.net),nextDate:today()});});
 }
 function renderFamily(){
 
- $('memberList').innerHTML=record.members.map(m=>'<div class="data-row"><div class="member-email"><h3>'+esc(m.email)+'</h3><p>'+m.role+'</p></div>'+(record.role==='owner'&&m.role!=='owner'?'<div class="row-actions"><select data-member-role="'+m.user_id+'" aria-label="Role for '+esc(m.email)+'"><option value="editor" '+(m.role==='editor'?'selected':'')+'>Editor</option><option value="viewer" '+(m.role==='viewer'?'selected':'')+'>Viewer</option></select><button data-remove-member="'+m.user_id+'" class="danger">Remove</button></div>':'')+'</div>').join('');
+ $('memberList').innerHTML=record.members.map(m=>'<div class="data-row"><div class="member-email"><h3>'+esc(m.email)+'</h3><p>'+m.role+'</p></div>'+(record.role==='owner'&&m.role!=='owner'?'<div class="row-actions"><select data-member-role="'+esc(m.user_id)+'" aria-label="Role for '+esc(m.email)+'"><option value="editor" '+(m.role==='editor'?'selected':'')+'>Editor</option><option value="viewer" '+(m.role==='viewer'?'selected':'')+'>Viewer</option></select><button data-remove-member="'+esc(m.user_id)+'" class="danger">Remove</button></div>':'')+'</div>').join('');
  $('inviteCard').classList.toggle('hidden',record.role!=='owner');
  if(sharedMode)$('memberList').querySelectorAll('[data-member-role]').forEach(el=>{el.disabled=true;el.title='Partners share editor access in phase 1.';});
  $('memberList').querySelectorAll('[data-member-role]').forEach(el=>el.onchange=()=>action(async()=>{await api('/api/members/role','POST',{householdId,userId:el.dataset.memberRole,role:el.value});await refreshSafe();}));
@@ -166,7 +166,7 @@ function renderFamily(){
 }
 const settingDefs=[['rainySaved','Rainy-day fund saved (included in cash if applicable)',0,1e9,.01],['rainyMonthly','Rainy-day fund monthly contribution',0,1e9,.01],['cashBalance','Available household cash',0,1e9,.01],['cashFloor','Cash floor to preserve',0,1e9,.01],['monthsToCover','Reserve months',1,60,.25],['bufferPct','Reserve buffer %',0,100,1],['reminderDays','Remind this many days before due',0,30,1]];
 function renderSettings(){
- $('settingsFields').innerHTML=settingDefs.map(([id,label,min,max,step])=>'<label>'+label+'<input id="'+id+'" data-setting="'+id+'" type="number" min="'+min+'" max="'+max+'" step="'+step+'" required value="'+plan[id]+'"></label>').join('')+'<label>Timezone<input id="timezone" value="'+esc(plan.timezone)+'" required></label>';
+ $('settingsFields').innerHTML=settingDefs.map(([id,label,min,max,step])=>'<label>'+label+'<input id="'+esc(id)+'" data-setting="'+esc(id)+'" type="number" min="'+min+'" max="'+max+'" step="'+step+'" required value="'+plan[id]+'"></label>').join('')+'<label>Timezone<input id="timezone" value="'+esc(plan.timezone)+'" required></label>';
  $('settingsFields').querySelectorAll('[data-setting]').forEach(el=>el.onchange=()=>{if(!el.checkValidity()){el.reportValidity();return;}plan[el.dataset.setting]=Number(el.value);changed();});
  $('timezone').onchange=()=>{try{new Intl.DateTimeFormat('en-US',{timeZone:$('timezone').value}).format();$('timezone').setCustomValidity('');plan.timezone=$('timezone').value;changed();}catch{$('timezone').setCustomValidity('Use a timezone such as America/Chicago.');toast('Use a timezone such as America/Chicago.',true);}};
  $('emailReminders').checked=plan.emailReminders;$('debtStrategy').value=plan.debtStrategy;$('extraDebtMonthly').value=plan.extraDebtMonthly;

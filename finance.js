@@ -48,7 +48,7 @@ function validate(input){
   const rows=input[collection]??[];if(!Array.isArray(rows)||rows.length>(collection==='transactions'?5000:200))throw Error('Too many '+collection+'.');
   const ids=new Set();
   out[collection]=rows.map(item=>{
-   if(!item||typeof item.id!=='string'||!item.id||item.id.length>120||ids.has(item.id))throw Error('Invalid or duplicate item ID.');
+   if(!item||typeof item.id!=='string'||!item.id||!/^[A-Za-z0-9 _.:-]{1,120}$/.test(item.id)||ids.has(item.id))throw Error('Invalid or duplicate item ID.');
    ids.add(item.id);const row={id:item.id};
    for(const [key,type]of Object.entries(fields)){
     const fallback=type==='partner'?'a':type==='billFrequency'?'monthly':key==='category'?'Other':key==='firstDay'?15:key==='secondDay'?31:type==='bool'?false:type==='months'?[]:type==='url'||type==='optionalDate'?'':type==='money'?0:undefined;
