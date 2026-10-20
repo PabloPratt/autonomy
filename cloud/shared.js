@@ -71,7 +71,7 @@ function makeSharedBackend(env={},fetcher=fetch){
    if(route==='/api/invitations/accept'&&method==='POST')return reply({id:await rpc('join_household',{p_code:input.token})});
    const h=input.householdId||url.searchParams.get('household');if(!/^[a-f0-9-]{36}$/i.test(h||''))fail('Invalid household.');
    const members=await db('autonomy_members?household_id=eq.'+h),member=members.find(m=>m.user_id===user.id);if(!member)fail('Household access denied.',403);
-   if(route==='/api/household'&&method==='GET'){const [row]=await db('autonomy_plans?household_id=eq.'+h);return reply({plan:F.validate(row.data),revision:row.revision,members,role:member.role,accounts:[],transactions:[],paystubs:[],connections:[],notifications:[],capabilities});}
+   if(route==='/api/household'&&method==='GET'){const [row]=await db('autonomy_plans?household_id=eq.'+h);let plan;try{plan=F.validate(row.data);}catch(e){return reply({error:'Saved plan has invalid data: '+e.message+' Export it below, fix or reset.',rawPlan:row.data,revision:row.revision,members,role:member.role},422);}return reply({plan,revision:row.revision,members,role:member.role,accounts:[],transactions:[],paystubs:[],connections:[],notifications:[],capabilities});}
    if(route==='/api/plan'&&method==='PUT'){
     if(member.role==='viewer')fail('Read-only household.',403);
     let plan;try{plan=F.validate(input.plan);}catch(e){fail(e.message);}plan.updatedAt=new Date().toISOString();
