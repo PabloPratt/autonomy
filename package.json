@@ -6,11 +6,10 @@
   "scripts": {
     "start": "node dev.cjs",
     "start:legacy": "node server.js",
-    "check": "node --check platform.js && node --check finance.js && node --check cloud/backend.js && node --check api/index.js && node --check server.js",
+    "check": "node --check platform.js && node --check finance.js && node --check cloud/backend.js && node --check api/index.js && node --check server.js && node --check cloud/shared.js && node --check cloud/bank-provider.js",
     "test": "node --test tests/*.test.js"
   },
   "engines": {
     "node": ">=20"
   }
 }
-

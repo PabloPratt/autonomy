@@ -1,4 +1,20 @@
-# Autonomy — saved work, October 18, 2026
+# Autonomy — phase 1 local work, October 20, 2026
+
+The accounts + bill-planning phase 1 task is implemented locally. No commit,
+deployment, migration application, or changes to other apps' data were made.
+The default API now targets pablo-ventures using user JWTs/RLS without a service
+key. `AUTONOMY_BACKEND=legacy` preserves the separate deployed backend path.
+Review README's phase 1 section and database/supabase-autonomy.sql before release.
+Shared registry metadata lookup was denied; review ownership/default columns and
+Doood policy cloning before applying the SQL. Live shared Auth/SQL/RLS remains
+unverified. RELEASE.json still describes the prior deployment.
+
+Added three-calendar-month planning, partner splits and schedules, nonmonthly
+bills, rainy-day milestones, editable subscription prices/nudges, debt comparison,
+sandbox provider boundary, and docs/money-movement-plan.md. Latest validation:
+43 Node tests, syntax checks, desktop/mobile regression with new UI controls.
+
+## Prior saved work, October 18, 2026
 
 User requested saving all progress before shutting down the PC. Resume the full
 launch-readiness task when requested. Do not call the product launch-ready.

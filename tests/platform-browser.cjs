@@ -16,7 +16,7 @@ const server=http.createServer(async(req,res)=>{
 });
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));
- const base='http://127.0.0.1:'+server.address().port,browser=await chromium.launch({headless:true});
+ const base='http://127.0.0.1:'+server.address().port,browser=await chromium.launch({headless:true,...(process.env.PLAYWRIGHT_EXECUTABLE?{executablePath:process.env.PLAYWRIGHT_EXECUTABLE}:{})});
  try{
   const errors=[],ctx=await browser.newContext(),page=await ctx.newPage();
   page.on('pageerror',e=>errors.push(e.message));
@@ -37,6 +37,14 @@ const server=http.createServer(async(req,res)=>{
   await page.locator('#save').click();await page.waitForFunction(()=>document.querySelector('#saveStatus').textContent.startsWith('Saved to'));
   await page.reload();await page.locator('#metrics .metric').first().waitFor();assert.equal(mock.tables.household_plans[0].data.debts[0].balance,2500);
   await page.locator('[data-view="paycheck"]').click();await page.locator('#paycheckPlan table').waitFor();
+  await page.locator('#threeMonthPlan details').first().waitFor();
+  await page.locator('#splitMode').selectOption('custom');await page.locator('#customShare').fill('75');await page.locator('#customShare').dispatchEvent('change');
+  assert.match(await page.locator('#threeMonthPlan').textContent(),/75.0%/);
+  await page.locator('#splitMode').selectOption('proportional');
+  await page.locator('[data-view="goals"]').click();assert.match(await page.locator('#rainyProgress').textContent(),/months of bills saved/);
+  await page.locator('[data-view="spending"]').click();await page.locator('#roast').check();
+  assert.equal(await page.locator('#priceTable tbody tr').count(),7);
+  await page.locator('[data-view="debts"]').click();assert.match(await page.locator('#debtComparison').textContent(),/avalanche/);assert.match(await page.locator('#debtComparison').textContent(),/snowball/);
   await page.locator('[data-view="bills"]').click();await page.locator('#billList [data-paid]').click();await page.locator('#save').click();
   await page.waitForFunction(()=>document.querySelector('#saveStatus').textContent.startsWith('Saved to'));
   const cal=page.waitForEvent('download');await page.locator('#calendar').click();assert.match((await cal).suggestedFilename(),/reminders.ics/);

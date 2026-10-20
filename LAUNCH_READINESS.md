@@ -1,4 +1,16 @@
-# Launch readiness — 2026-10-18
+# Launch readiness — phase 1 local update, 2026-10-20
+
+Phase 1 changes are local and uncommitted. Nothing was deployed or applied to
+pablo-ventures. The default API uses the shared project; explicit
+`AUTONOMY_BACKEND=legacy` retains the previous isolated backend. Review README
+and database/supabase-autonomy.sql before deploying. The shared registry schema
+was unavailable to the connector; its Doood policy cloning and registry field
+assumptions need review. Live shared-project RLS/Auth/SMTP checks remain pending.
+43 Node tests, syntax checks and desktop/mobile regression pass locally; these
+do not validate the unapplied SQL. Sandbox-only bank Link verification removes
+the test item; persistence and live bank sync remain future shared-project work.
+
+## Previous deployed readiness — 2026-10-18
 
 The cloud rebuild is implemented and verified; the full product is not launch-ready.
 

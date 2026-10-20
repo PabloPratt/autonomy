@@ -1,5 +1,6 @@
 const BACKEND = 'https://mswszuvtffztattslfzg.supabase.co/functions/v1/autonomy';
 module.exports = async function(req,res) {
+  if(process.env.AUTONOMY_BACKEND!=='legacy')return require('../cloud/shared').makeSharedBackend(process.env)(req,res);
   res.setHeader('Cache-Control','no-store');
   try {
     const source=new URL(req.url,'https://autonomy-wheat.vercel.app');
